@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "../lib/jalloc.h"
-#include "../lib/jalloc_utils.h"
+#include "../lib/jalloc_internals.h"
 
 typedef struct _point {
   short x;
@@ -131,9 +131,57 @@ void reallocate_large()
 
   your_large = jmalloc (sizeof (large_t));
   assert (your_large != NULL);
-  assert (allocated_bytes () == 48);
+  assert (allocated_bytes () == 40);
 
   jfree (your_large);
+  assert (allocated_bytes () == 0);
+}
+
+void reallocate_too_large()
+{
+  point_t *my_point;
+  large_t *my_large;
+
+  my_point = jmalloc (sizeof (point_t));
+  jfree(my_point);
+
+  my_large = jmalloc (sizeof (large_t));
+  assert (my_large != NULL);
+  assert ((void *)my_large != (void *)my_point);
+
+  jfree (my_large);
+  assert (allocated_bytes () == 0);
+}
+
+/*
+ * reallocating a smaller block should create a new block for the left over
+ * memory
+ * TODO: Draw this example!
+ */
+void reallocate_smaller()
+{
+  large_t *large1;
+  large_t *large2;
+  point_t *point1;
+  point_t *point2;
+
+  // clear all memory!
+  sbrk(head - heap_end);
+  heap_end = head;
+
+  large1 = jmalloc (sizeof (large_t));
+  large2 = jmalloc (sizeof (large_t));
+  jfree(large1);
+
+  point1 = jmalloc (sizeof(point_t));
+  point2 = jmalloc (sizeof(point_t));
+
+  assert ((void *)point1 < (void *)large2);
+  assert ((void *)point2 < (void *)large2);
+
+  jfree(large2);
+  jfree(point1);
+  jfree(point2);
   assert (allocated_bytes () == 0);
 }
 
@@ -145,4 +193,7 @@ int main (int argc, char **argv)
   allocate_many ();
 
   allocate_large ();
+  reallocate_large ();
+  reallocate_too_large ();
+  reallocate_smaller ();
 }

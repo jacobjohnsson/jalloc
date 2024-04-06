@@ -1,6 +1,9 @@
 #include "jalloc.h"
-#include "jalloc_utils.h"
+#include "jalloc_internals.h"
 #include <unistd.h>
+
+void *head = NULL;
+void *heap_end;
 
 /*
  * The block_t is a part of a header for a block of memory. size indicates the
@@ -20,16 +23,12 @@
  *    --------------- ---------------
  *
  */
-typedef struct _block_t block_t;
 
 struct _block_t {
   size_t size;
   char in_use;
   char debug_info;
 };
-
-static block_t *head = NULL;
-static void *heap_end;
 
 static block_t *
 next_block_header (block_t *prev)
@@ -67,10 +66,10 @@ allocate_beyond_end (size_t size)
 size_t
 allocated_bytes ()
 {
-  block_t *iter = head;
+  block_t *iter = (block_t *)head;
   size_t sum = 0;
 
-  while (iter < heap_end) {
+  while ((void *)iter < heap_end) {
     if (iter->in_use) {
       sum += iter->size;
     }
@@ -92,13 +91,13 @@ jmalloc (size_t size)
     new_block = allocate_beyond_end (size);
 
     // this will be the start of the "list"
-    head = new_block;
+    head = (void *)new_block;
   } else {
 
-    block_iter = head;
+    block_iter = (block_t *)head;
     while (1) {
       // we need to request more memory
-      if (block_iter >= heap_end) {
+      if ((void *)block_iter >= heap_end) {
         new_block = allocate_beyond_end (size);
         break;
       }
